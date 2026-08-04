@@ -5173,7 +5173,7 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 	}
 	/* TODO: Remove this direct reference to the dsi_ctrl */
 	timing = &per_ctrl_mode.timing;
-	if(mi_get_panel_id(display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA){
+	if (mi_get_panel_id(display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA) {
 		if (timing->refresh_rate == 90) {
 			adj_mode->timing.v_front_porch = 26;
 			adj_mode->timing.h_front_porch = 518;
@@ -5193,7 +5193,28 @@ static int dsi_display_get_dfps_timing(struct dsi_display *display,
 			adj_mode->timing.v_front_porch = 1972;
 			adj_mode->timing.h_front_porch = 130;
 		}
-	}else{ 
+	} else if (mi_get_panel_id(display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+			mi_get_panel_id(display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PB) {
+		if (timing->refresh_rate == 30) {
+			adj_mode->timing.v_front_porch = 6270;
+			adj_mode->timing.h_front_porch = 498;
+		} else if (timing->refresh_rate == 48) {
+			adj_mode->timing.v_front_porch = 2758;
+			adj_mode->timing.h_front_porch = 498;
+		} else if (timing->refresh_rate == 50) {
+			adj_mode->timing.v_front_porch = 2524;
+			adj_mode->timing.h_front_porch = 498;
+		} else if (timing->refresh_rate == 60) {
+			adj_mode->timing.v_front_porch = 3148;
+			adj_mode->timing.h_front_porch = 200;
+		} else if (timing->refresh_rate == 90) {
+			adj_mode->timing.v_front_porch = 26;
+			adj_mode->timing.h_front_porch = 500;
+		} else if (timing->refresh_rate == 144) {
+			adj_mode->timing.v_front_porch = 26;
+			adj_mode->timing.h_front_porch = 52;
+		}
+	} else {
 		switch (dfps_caps.type) {
 		case DSI_DFPS_IMMEDIATE_VFP:
 			rc = dsi_display_dfps_calc_front_porch(
@@ -9361,7 +9382,12 @@ int dsi_display_unprepare(struct dsi_display *display)
 
 void __init dsi_display_register(void)
 {
-	mi_backlight_ktz8866_init();
+	int rc;
+
+	rc = mi_backlight_ktz8866_init();
+	if (rc)
+		DSI_ERR("failed to register KTZ8866 backlight driver, rc=%d\n",
+				rc);
 	mi_disp_feature_init();
 	dsi_phy_drv_register();
 	dsi_ctrl_drv_register();
@@ -9377,6 +9403,7 @@ void __exit dsi_display_unregister(void)
 	dsi_ctrl_drv_unregister();
 	dsi_phy_drv_unregister();
 	mi_disp_feature_deinit();
+	mi_backlight_ktz8866_deinit();
 }
 module_param_string(dsi_display0, dsi_display_primary, MAX_CMDLINE_PARAM_LEN,
 								0600);

@@ -4848,13 +4848,19 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 		}
 	}
 
-	if (dsi_display && dsi_display->panel && (mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA) &&
+	if (dsi_display && dsi_display->panel &&
+			(mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+			 mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+			 mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PB) &&
 	    (adj_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR)) {
 		mutex_lock(&dsi_display->panel->panel_lock);
 		sde_encoder_vid_wait_for_active(drm_enc);
 	}
 
-	if (dsi_display && dsi_display->panel && (mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA) &&
+	if (dsi_display && dsi_display->panel &&
+			(mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+			 mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+			 mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PB) &&
 	    (adj_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR)) {
 		if (dsi_display->panel->mi_cfg.last_fps == 60 && adj_mode.timing.refresh_rate != 120) {
 		    rc = dsi_panel_tx_cmd_set(dsi_display->panel, DSI_CMD_SET_DISP_PEN_CLEAR);
@@ -4876,13 +4882,20 @@ void sde_encoder_kickoff(struct drm_encoder *drm_enc, bool config_changed)
 			phys->ops.handle_post_kickoff(phys);
 	}
 
+	if (dsi_display && dsi_display->panel &&
+			(mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+			 mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PB) &&
+	    (adj_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR)) {
+		mi_dsi_panel_match_fps_pen_setting(dsi_display->panel, &adj_mode);
+		mutex_unlock(&dsi_display->panel->panel_lock);
+	}
+
 	if (sde_enc->autorefresh_solver_disable &&
 			!_sde_encoder_is_autorefresh_enabled(sde_enc))
 		_sde_encoder_update_rsc_client(drm_enc, true);
 
-
-
-	if (dsi_display && dsi_display->panel && (mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA) &&
+	if (dsi_display && dsi_display->panel &&
+			mi_get_panel_id(dsi_display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA &&
 	    (adj_mode.dsi_mode_flags & DSI_MODE_FLAG_VRR)) {
 		mi_dsi_panel_match_fps_pen_setting(dsi_display->panel, &adj_mode);
 		mutex_unlock(&dsi_display->panel->panel_lock);

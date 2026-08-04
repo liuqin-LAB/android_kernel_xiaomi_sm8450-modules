@@ -128,7 +128,9 @@ int mi_sde_connector_register_esd_irq(struct sde_connector *c_conn)
 			}
 		}
 			
-		if (mi_get_panel_id(display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA){
+		if (mi_get_panel_id(display->panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+				mi_get_panel_id(display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+				mi_get_panel_id(display->panel->mi_cfg.mi_panel_id) == M81_PANEL_PB) {
 			if (display->panel->mi_cfg.esd_err_irq_gpio_second > 0) {
 				rc = request_threaded_irq(display->panel->mi_cfg.esd_err_irq_second,
 					NULL, mi_esd_err_irq_handle,
@@ -397,7 +399,10 @@ int mi_sde_connector_update_layer_state(struct drm_connector *connector,
 
 	if (connector->connector_type == DRM_MODE_CONNECTOR_DSI) {
 		display = (struct dsi_display *)c_conn->display;
-		if (display)
+		if (display && display->panel &&
+				mi_get_panel_id_by_dsi_panel(display->panel) != M80_PANEL_PA &&
+				mi_get_panel_id_by_dsi_panel(display->panel) != M81_PANEL_PA &&
+				mi_get_panel_id_by_dsi_panel(display->panel) != M81_PANEL_PB)
 			mi_sde_connector_update_aod_status(connector, !cur_flags.aod_flag);
 	}
 
@@ -467,4 +472,3 @@ int mi_sde_connector_flat_fence(struct drm_connector *connector)
 
 	return rc;
 }
-

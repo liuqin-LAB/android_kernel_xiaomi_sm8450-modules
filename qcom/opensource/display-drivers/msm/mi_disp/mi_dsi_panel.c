@@ -231,7 +231,9 @@ int mi_dsi_panel_esd_irq_ctrl_locked(struct dsi_panel *panel,
 	} else {
 		DISP_INFO("[%s] esd irq gpio invalid\n", panel->type);
 	}
-	if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA){
+	if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+			mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+			mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PB) {
 		if (gpio_is_valid(mi_cfg->esd_err_irq_gpio_second)) {
 			if (mi_cfg->esd_err_irq_second) {
 				if (enable) {
@@ -526,7 +528,10 @@ void mi_dsi_panel_update_last_bl_level(struct dsi_panel *panel, int brightness)
 			mi_cfg->dimming_state = STATE_NONE;
 	}
 
-	if (mi_cfg->last_bl_level == 0 && brightness && ( mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA)){
+	if (mi_cfg->last_bl_level == 0 && brightness &&
+			(mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+			 mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+			 mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PB)) {
 		DSI_INFO("disable insert black sreen\n");
 		dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISABLE_INSERT_BLACK);
 	}
@@ -4255,6 +4260,7 @@ int mi_dsi_panel_match_fps_pen_setting(struct dsi_panel *panel,
 {
 	int rc =0;
 	int retval = 0;
+	enum mi_project_panel_id panel_id;
 	struct dsi_display_mode_priv_info *priv_info;
 
 	if (!panel || !panel->cur_mode || !panel->cur_mode->priv_info || !adj_mode) {
@@ -4263,14 +4269,16 @@ int mi_dsi_panel_match_fps_pen_setting(struct dsi_panel *panel,
 	}
 
 	priv_info = panel->cur_mode->priv_info;
+	panel_id = mi_get_panel_id(panel->mi_cfg.mi_panel_id);
 
 	if (!priv_info->cmd_sets[DSI_CMD_SET_DISP_PEN_120HZ].count) {
 		pr_debug("DSI_CMD_SET_DISP_PEN_120HZ not defined, return\n");
 		return 0;
 	}
 
-	/* match fps(90/50/48/30Hz) pen seeting cmd */
-	if (adj_mode->timing.refresh_rate == 120)
+	if (adj_mode->timing.refresh_rate == 144)
+		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_PEN_144HZ);
+	else if (adj_mode->timing.refresh_rate == 120)
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_PEN_120HZ);
 	else if (adj_mode->timing.refresh_rate == 60)
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_PEN_60HZ);
@@ -4280,11 +4288,15 @@ int mi_dsi_panel_match_fps_pen_setting(struct dsi_panel *panel,
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_PEN_90HZ);
 	else if (adj_mode->timing.refresh_rate == 48)
 		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_PEN_48HZ);
-	else if (adj_mode->timing.refresh_rate == 50)
-		rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_PEN_50HZ);
+	else if (adj_mode->timing.refresh_rate == 50) {
+		if (panel_id == M81_PANEL_PA || panel_id == M81_PANEL_PB)
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_PEN_48HZ);
+		else
+			rc = dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_DISP_PEN_50HZ);
+	}
 
 	if (rc) {
-		pr_err("Failed to send DSI_CMD_SET_DISP_PEN_120HZ command\n");
+		pr_err("Failed to send display pen FPS command\n");
 		retval = -EAGAIN;
 		goto error;
 	}else
@@ -4331,7 +4343,8 @@ int mi_dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable, int in
 		vreg = &regs->vregs[index];
 		pre_on_ms = vreg->pre_on_sleep;
 		post_on_ms = vreg->post_on_sleep;
-		DSI_ERR("M80 Setting optimum mode for %s, enable:%d\n",vreg->vreg_name,enable,index);
+		DSI_INFO("TDDI setting optimum mode for %s, enable:%d, index:%d\n",
+				vreg->vreg_name, enable, index);
 		if (vreg->pre_on_sleep)
 			usleep_range((pre_on_ms * 1000),
 					(pre_on_ms * 1000) + 10);
@@ -4369,7 +4382,8 @@ int mi_dsi_pwr_enable_vregs(struct dsi_regulator_info *regs, bool enable, int in
 		vreg = &regs->vregs[index];
 		pre_off_ms = vreg->pre_off_sleep;
 		post_off_ms = vreg->post_off_sleep;
-		DSI_ERR("M80 Setting optimum mode  for %s, enable:%d\n",vreg->vreg_name,enable,index);
+		DSI_INFO("TDDI setting optimum mode for %s, enable:%d, index:%d\n",
+				vreg->vreg_name, enable, index);
 		if (pre_off_ms)
 			usleep_range((pre_off_ms * 1000),
 					(pre_off_ms * 1000) + 10);
