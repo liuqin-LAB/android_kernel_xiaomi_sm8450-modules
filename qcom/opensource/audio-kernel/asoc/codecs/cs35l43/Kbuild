@@ -86,10 +86,6 @@ ifneq (,$(filter $(TARGET_PRODUCT), ingres))
 	CDEFINES += -DCONFIG_TARGET_PRODUCT_INGRES
 endif
 
-ifneq (,$(filter $(TARGET_PRODUCT), liuqin))
-	CDEFINES += -DCONFIG_MMHARDWARE_DETECTION
-endif
-
 ifneq (,$(filter $(TARGET_PRODUCT), yudi))
 	CDEFINES += -DCONFIG_MMHARDWARE_DETECTION
 endif
