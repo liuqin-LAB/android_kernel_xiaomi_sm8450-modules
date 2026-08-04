@@ -7,6 +7,10 @@
  */
 #ifndef __KTZ8866_H__
 #define __KTZ8866_H__
+
+#include <linux/mutex.h>
+#include <linux/types.h>
+
 /* KTZ8866 backlight I2C driver */
 #define KTZ8866_backlight_EN_MASK         0x40
 #define KTZ8866_backlight_EN_SHIFT        6
@@ -38,20 +42,27 @@
 #define KTZ8866_DISP_FULL_CURRENT         0x15
 #define BL_LEVEL_MAX 2047
 #define BL_LEVEL_MAX_HBM 4095
+
+
+struct ktz8866_led;
+struct dsi_panel;
+
 /**
  * struct ktz8866_led -
- * @lock - Lock for reading/writing the device
  * @level - setting backlight level
- * @level - setting backlight status
-**/
+ * @ktz8866_status - setting backlight status
+ * @dimming_status - setting dimming status
+ * @hbm_enabled - whether the board enables HBM brightness scaling
+ * @lock - Lock for reading/writing the device
+ **/
 struct ktz8866_led {
-		struct mutex lock;
 		int level;
 		bool ktz8866_status;
 		bool dimming_status;
-		int panel_id;
-		bool HBM_enable;
+		bool hbm_enabled;
+		struct mutex lock;
 };
+
 static const int mi_bl_level_remap[BL_LEVEL_MAX+1] = {
 0,17,17,31,40,54,107,132,163,186,
 213,222,241,260,279,300,321,330,349,365,
@@ -258,5 +269,10 @@ static const int mi_bl_level_remap[BL_LEVEL_MAX+1] = {
 2041,2041,2042,2042,2042,2042,2042,2042,2042,2043,
 2043,2043,2043,2044,2044,2044,2044,2045,2045,2045,
 2045,2045,2046,2046,2046,2047,2047,2047 };
+
 int mi_backlight_ktz8866_init(void);
+void mi_backlight_ktz8866_deinit(void);
+int ktz8866_backlight_update_status(struct dsi_panel *panel,
+		unsigned int backlight);
+
 #endif

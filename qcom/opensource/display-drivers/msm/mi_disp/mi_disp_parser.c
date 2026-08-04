@@ -43,7 +43,12 @@ int mi_dsi_panel_parse_esd_gpio_config(struct dsi_panel *panel)
 		rc = -EINVAL;
 	}
 
-	if( !strcmp(panel->name,"xiaomi m80 42 02 0a video mode dual dsi dphy panel")){
+	if (!strcmp(panel->name,
+			"xiaomi m80 42 02 0a video mode dual dsi dphy panel") ||
+			!strcmp(panel->name,
+			"xiaomi m81 36 02 0a dualdsi dsc lcd video panel") ||
+			!strcmp(panel->name,
+			"xiaomi m81 42 02 0b dualdsi dsc lcd video panel")) {
 		mi_cfg->esd_err_irq_gpio_second = of_get_named_gpio_flags(
 			utils->data, "mi,esd-err-irq-gpio-second",
 			0, (enum of_gpio_flags *)&(mi_cfg->esd_err_irq_flags_second));
@@ -173,18 +178,28 @@ static void mi_dsi_panel_parse_lockdown_config(struct dsi_panel *panel)
 	void *lockdown_ptr = NULL;
 	struct mi_dsi_panel_cfg *mi_cfg = &panel->mi_cfg;
 
-	int i =0;
+	size_t i = 0;
+	const size_t lockdown_size =
+			sizeof(mi_cfg->lockdown_cfg.lockdown_param);
+	enum mi_project_panel_id panel_id =
+			mi_get_panel_id(panel->mi_cfg.mi_panel_id);
+
 	DISP_ERROR("lockdown kernel  debug start !! \n");
-	if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA) {
-		DISP_ERROR("M80 product lockdown kernel get !! \n");
+	if (panel_id == M80_PANEL_PA || panel_id == M81_PANEL_PA ||
+			panel_id == M81_PANEL_PB) {
+		DISP_ERROR("LCD product lockdown kernel get !! \n");
 		lockdown_ptr = qcom_smem_get(QCOM_SMEM_HOST_ANY, SMEM_SW_DISPLAY_LOCKDOWN_TABLE, &item_size);
-		if (!IS_ERR(lockdown_ptr) && item_size > 0) {
-			DISP_ERROR("M80 lockdown data size= %d\n",item_size);
-			memcpy(mi_cfg->lockdown_cfg.lockdown_param, lockdown_ptr, item_size);
+		if (!IS_ERR(lockdown_ptr) && item_size >= lockdown_size) {
+			DISP_ERROR("LCD lockdown data size= %zu\n", item_size);
+			memcpy(mi_cfg->lockdown_cfg.lockdown_param, lockdown_ptr,
+					lockdown_size);
+		} else {
+			DISP_ERROR("failed to read %zu-byte LCD lockdown data\n",
+					lockdown_size);
 		}
-		for (i=0; i<8 ; i++)
-		{
-			DISP_ERROR("M80 lockdown data mi_cfg->lockdown_cfg.lockdown_param[%d] = 0x%0x\n",i, mi_cfg->lockdown_cfg.lockdown_param[i]);
+		for (i = 0; i < lockdown_size; i++) {
+			DISP_ERROR("LCD lockdown data mi_cfg->lockdown_cfg.lockdown_param[%zu] = 0x%0x\n",
+				i, mi_cfg->lockdown_cfg.lockdown_param[i]);
 		}
 	}
 }
@@ -507,4 +522,3 @@ int mi_dsi_panel_parse_config(struct dsi_panel *panel)
 
 	return rc;
 }
-

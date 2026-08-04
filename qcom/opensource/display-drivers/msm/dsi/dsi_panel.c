@@ -45,7 +45,8 @@
 #define MIN_PREFILL_LINES      40
 #define RSCC_MODE_THRESHOLD_TIME_US 40
 #define DCS_COMMAND_THRESHOLD_TIME_US 40
-extern int ktz8866_backlight_update_status(unsigned int backlight);
+extern int ktz8866_backlight_update_status(struct dsi_panel *panel,
+		unsigned int backlight);
 
 static void dsi_dce_prepare_pps_header(char *buf, u32 pps_delay_ms)
 {
@@ -377,6 +378,14 @@ static int dsi_panel_power_on(struct dsi_panel *panel)
 			}
 			DSI_ERR("M80 dsi_panel_power_on mi_dsi_pwr_enable_vregs 1.3v\n");
 			mi_dsi_pwr_enable_vregs(&panel->power_info, true, 2);
+		} else if (panel->mi_cfg.tddi_doubleclick_flag &&
+				(mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+				 mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PB)) {
+			if (gpio_is_valid(panel->reset_config.reset_gpio) &&
+					!panel->reset_gpio_always_on)
+				gpio_set_value(panel->reset_config.reset_gpio, 0);
+			mi_dsi_pwr_enable_vregs(&panel->power_info, true, 1);
+			mi_dsi_pwr_enable_vregs(&panel->power_info, true, 2);
 		}
 	} else {
 		rc = dsi_pwr_enable_regulator(&panel->power_info, true);
@@ -445,8 +454,10 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 				gpio_set_value(panel->reset_config.reset_gpio, 0);
 			}
 		} else if (panel->mi_cfg.tddi_doubleclick_flag &&
-				mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA) {
-			    DSI_ERR("M80 dont reset !!\n");
+				(mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+				 mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+				 mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PB)) {
+			DSI_INFO("keep TDDI reset high for double-tap wake\n");
 		}
 	} else {
 		if (gpio_is_valid(panel->reset_config.reset_gpio) &&
@@ -483,6 +494,11 @@ static int dsi_panel_power_off(struct dsi_panel *panel)
 				mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA) {
 			DSI_ERR("M80 dsi_panel_power_off mi_dsi_pwr_enable_vregs 1.3v\n");
 			mi_dsi_pwr_enable_vregs(&panel->power_info, false, 2);
+		} else if (panel->mi_cfg.tddi_doubleclick_flag &&
+				(mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+				 mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PB)) {
+			mi_dsi_pwr_enable_vregs(&panel->power_info, false, 2);
+			mi_dsi_pwr_enable_vregs(&panel->power_info, false, 1);
 		}
 	} else {
 		rc = dsi_pwr_enable_regulator(&panel->power_info, false);
@@ -717,7 +733,7 @@ int dsi_panel_update_backlight(struct dsi_panel *panel,
 		rc = mipi_dsi_dcs_subtype_set_display_brightness(dsi, bl_lvl,
 						panel->bl_config.bl_dcs_subtype);
 	else {
-		if (!(mi_get_panel_id_by_dsi_panel(panel) == M80_PANEL_PA)) {
+		if (mi_get_panel_id_by_dsi_panel(panel) != M80_PANEL_PA) {
 			rc = mipi_dsi_dcs_set_display_brightness(dsi, bl_lvl);
 		} else {
 			DSI_INFO("project m80 panel is LCD,skip mipi_dsi_dcs_set_display_brightness\n");
@@ -821,7 +837,10 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 
 	DSI_DEBUG("backlight type:%d lvl:%d\n", bl->type, bl_lvl);
 
-	if (0 == bl_lvl && (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA)){
+	if (bl_lvl == 0 &&
+			(mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+			 mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+			 mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PB)) {
 		DSI_INFO("set insert black screen\n");
 		dsi_panel_tx_cmd_set(panel, DSI_CMD_SET_INSERT_BLACK);
 		usleep_range((6 * 1000),(6 * 1000) + 10);
@@ -835,9 +854,11 @@ int dsi_panel_set_backlight(struct dsi_panel *panel, u32 bl_lvl)
 		rc = dsi_panel_update_backlight(panel, bl_lvl);
 		break;
 	case DSI_BACKLIGHT_EXTERNAL:
-		if(mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA || 
-			mi_get_panel_id(panel->mi_cfg.mi_panel_id) == PANEL_ID_INVALID) {
-			rc = ktz8866_backlight_update_status(bl_lvl);
+		if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+				mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+				mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PB ||
+				mi_get_panel_id(panel->mi_cfg.mi_panel_id) == PANEL_ID_INVALID) {
+			rc = ktz8866_backlight_update_status(panel, bl_lvl);
 		}
 		break;
 	case DSI_BACKLIGHT_PWM:
@@ -2173,7 +2194,8 @@ const char *cmd_set_prop_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-fps-120-gamma-command",
 	"mi,mdss-dsi-fps-90-gamma-command",
 	"mi,mdss-dsi-fps-60-gamma-command",
-	/*match frame  120HZ/90HZ/60HZ/50Hz/48Hz/30Hz*/
+	/*match frame  144Hz/120Hz/90Hz/60Hz/50Hz/48Hz/30Hz*/
+	"qcom,mdss-dsi-dispparam-pen-144hz-command",
 	"qcom,mdss-dsi-dispparam-pen-120hz-command",
 	"qcom,mdss-dsi-dispparam-pen-90hz-command",
 	"qcom,mdss-dsi-dispparam-pen-60hz-command",
@@ -2279,6 +2301,7 @@ const char *cmd_set_state_map[DSI_CMD_SET_MAX] = {
 	"mi,mdss-dsi-fps-120-gamma-command-state",
 	"mi,mdss-dsi-fps-90-gamma-command-state",
 	"mi,mdss-dsi-fps-60-gamma-command-state",
+	"qcom,mdss-dsi-dispparam-pen-144hz-command-state",
 	"qcom,mdss-dsi-dispparam-pen-120hz-command-state",
 	"qcom,mdss-dsi-dispparam-pen-90hz-command-state",
 	"qcom,mdss-dsi-dispparam-pen-60hz-command-state",
@@ -5715,7 +5738,9 @@ int dsi_panel_post_enable(struct dsi_panel *panel)
 		       panel->name, rc);
 		goto error;
 	}
-	if((mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA)) {
+	if (mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA ||
+			mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PA ||
+			mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M81_PANEL_PB) {
 		rc = mi_dsi_panel_match_fps_pen_setting(panel, panel->cur_mode);
 		if (rc) {
 			DSI_ERR("[%s] failed to update TP fps code setting, rc=%d\n",

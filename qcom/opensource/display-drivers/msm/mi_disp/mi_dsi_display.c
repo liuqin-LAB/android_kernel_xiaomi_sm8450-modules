@@ -24,7 +24,8 @@ static char sec_oled_wp_info_str[32] = {0};
 static char cell_id_info_str[32] = {0};
 static struct panel_manufaturer_info g_panel_manufaturer_info[MI_DISP_MAX];
 static struct dsi_read_info g_dsi_read_info;
-extern int ktz8866_backlight_update_status(unsigned int backlight);
+extern int ktz8866_backlight_update_status(struct dsi_panel *panel,
+		unsigned int backlight);
 
 #define MAX_DEBUG_POLICY_CMDLINE_LEN 64
 static char display_debug_policy[MAX_DEBUG_POLICY_CMDLINE_LEN] = {0};
@@ -1201,9 +1202,10 @@ int mi_display_powerkey_callback(int status)
 		return mi_display_pm_suspend_delayed_work(dsi_display);
 	}
 
-	if(status == PMIC_PWRKEY_CLOSE_BRIGHNESS){
+	if (status == PMIC_PWRKEY_CLOSE_BRIGHNESS &&
+			mi_get_panel_id(panel->mi_cfg.mi_panel_id) == M80_PANEL_PA) {
 		int brightness = 0;
-		ktz8866_backlight_update_status(brightness);
+		ktz8866_backlight_update_status(panel, brightness);
 	}
 	return 0;
 }
